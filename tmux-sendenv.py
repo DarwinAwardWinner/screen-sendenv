@@ -4,15 +4,22 @@ import plac
 import logging
 import sys
 import os
+import os.path
 import subprocess
 
 def socket_spec(socket=None):
-    return [ "-S", socket ] if socket else []
+    if not socket:
+        return []
+    socket = str(socket)
+    # Seeing a path separator means this is a path
+    if socket.find(os.path.sep) != -1:
+        return [ "-S", socket ]
+    else:
+        return [ "-L", socket ]
 
-devnull = open(os.devnull, "w")
+devnull = subprocess.Popen("cat", stdin=subprocess.PIPE, stdout=open(os.devnull, 'w'), stderr=subprocess.STDOUT).stdin
 
 def verify_socket(socket=None, tmuxpath="tmux"):
-    return
     cmd = [ tmuxpath ] + socket_spec(socket) + [ "server-info" ]
     logging.debug("Checking socket with %s" % cmd)
     try:
