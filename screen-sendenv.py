@@ -35,7 +35,7 @@ class EnvSender(object):
         try:
             self.send_cmd(self.test_command())
         except subprocess.CalledProcessError:
-            raise ValueError("Could not connect to specified session")
+            raise Exception("Could not connect to specified session")
     def send_variable(self, name, value):
         """Set environment variable NAME to VALUE in session."""
         self.send_cmd(self.sendenv_command(name, value))
