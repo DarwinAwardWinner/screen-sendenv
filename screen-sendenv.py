@@ -135,18 +135,37 @@ session_types = {
     'tmux' : TmuxEnvSender,
 }
 
+def AutoSelectEnvSender(*args, **kwargs):
+    """Attempt to autodetect the currently-running multiplexer."""
+    for stype in session_types:
+        try:
+            logging.debug("Trying session type %s" % stype)
+            cls = session_types[stype]
+            sender = cls(*args, **kwargs)
+            logging.info("Auto-selected session type %s" % stype)
+            return sender
+        except:
+            logging.debug("Rejected session type %s" % stype)
+            pass
+    else:
+        raise Exception("Unable to autodetect session type.")
+
+session_types_incl_auto = dict(auto=AutoSelectEnvSender, **session_types)
+
 @plac.annotations(
     # arg=(helptext, kind, abbrev, type, choices, metavar)
     # [INSERT ARGS HERE]
     quiet=("Do not print informational messages.", "flag", "q"),
     verbose=("Print debug messages that are probably only useful if something is going wrong.", "flag", "v"),
-    session_type=("Which terminal multiplexer to use. Currently supported are 'screen' and 'tmux'.", "option", "t", str, session_types.keys()),
+    session_type=("Which terminal multiplexer to use. Currently supported are 'screen' and 'tmux'. Use 'auto' to automatically select the right one, based on which one is currently running.", "option", "t", str, session_types_incl_auto.keys()),
     program_path=("Path to multiplexer executable. Only required if not in $PATH", "option", "p", str, None, 'PATH'),
     socket=("Socket name", "option", "S", str, None, "SOCKNAME"),
     session=("Session number. Only meaningful for tmux.", "option", "s", int, None, 'NUMBER'),
+    unset_empty=("Unset variables instead of setting them to the empty string", "flag", "u"),
     vars=("Variables to send to multiplexer. If no value is specified for a variable, its value will be taken from the current environment.", "positional", None, str, None, "VAR[=VALUE]"),
     )
-def main(session_type="screen", session=None,
+def main(unset_empty,
+         session_type="auto", session=None,
          socket=None, program_path=None,
          quiet=False, verbose=False,
          *vars):
@@ -164,7 +183,7 @@ newly-created windows inside the multiplexer."""
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
-    sender_class = session_types[session_type]
+    sender_class = session_types_incl_auto[session_type]
     sender = sender_class(path=program_path, socket=socket, session=session)
     for var in vars:
         if var.find("=") != -1:
