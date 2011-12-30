@@ -190,7 +190,9 @@ newly-created windows inside the multiplexer."""
             var, value = var.split("=", 1)
         else:
             value = os.getenv(var)
-        logging.debug("Sending %s=%s" % (var, value))
+        if value == "" and unset_empty:
+            value = None
+        logging.info("Sending %s=%s" % (var, value))
         sender.send_variable(var, value)
 
 # Entry point
