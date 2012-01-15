@@ -39,13 +39,15 @@ class EnvSender(object):
     def send_variable(self, name, value):
         """Set environment variable NAME to VALUE in session."""
         self.send_cmd(self.sendenv_command(name, value))
-
     def handle_kwargs(self, kwargs):
         """Handle additional init arguments.
 
         This can be overridden by subclasses to handle (and require
         the presence of) specific keyword arguments."""
         pass
+
+    def __repr__(self):
+        return "%s(socket=%s, path=%s)" % (self.__class__.__name__, repr(self.socket), repr(self.path))
 
     # These functions must be implemented by subclasses (except for
     # command_postlude, which is optional)
@@ -119,13 +121,15 @@ class TmuxEnvSender(EnvSender):
     def command_prelude(self):
         return [ self.path ] + self.socket_argspec()
     def test_command(self):
-        return [ "list-windows" ] + self.session_argspec()
+        return [ "list-sessions" ] + self.session_argspec()
     def sendenv_command(self, name, value):
         if value is None:
             cmd = [ "setenv" ] + self.session_argspec() + [ "-u", name ]
         else:
             cmd = [ "setenv" ] + self.session_argspec() + [ name, value ]
         return cmd
+    def __repr__(self):
+        return "%s(socket=%s, path=%s, session=%s)" % (self.__class__.__name__, repr(self.socket), repr(self.path), repr(self.session))
     @property
     def default_path(self):
         return "tmux"
@@ -162,9 +166,10 @@ session_types_incl_auto = dict(auto=AutoSelectEnvSender, **session_types)
     socket=("Socket name", "option", "S", str, None, "SOCKNAME"),
     session=("Session number. Only meaningful for tmux.", "option", "s", int, None, 'NUMBER'),
     unset_empty=("Unset variables instead of setting them to the empty string", "flag", "u"),
+    list=("Just list the session where variables would be sent. Any variables specified will be ignored.", "flag", "l"),
     vars=("Variables to send to multiplexer. If no value is specified for a variable, its value will be taken from the current environment.", "positional", None, str, None, "VAR[=VALUE]"),
     )
-def main(unset_empty,
+def main(unset_empty, list=False,
          session_type="auto", session=None,
          socket=None, program_path=None,
          quiet=False, verbose=False,
@@ -185,15 +190,19 @@ newly-created windows inside the multiplexer."""
         logging.basicConfig(level=logging.INFO)
     sender_class = session_types_incl_auto[session_type]
     sender = sender_class(path=program_path, socket=socket, session=session)
-    for var in vars:
-        if var.find("=") != -1:
-            var, value = var.split("=", 1)
-        else:
-            value = os.getenv(var)
-        if value == "" and unset_empty:
-            value = None
-        logging.info("Sending %s=%s" % (var, value))
-        sender.send_variable(var, value)
+    if list:
+        logging.info("Selected session: %s" % sender)
+    else:
+        logging.debug("Sending to %s" % sender)
+        for var in vars:
+            if var.find("=") != -1:
+                var, value = var.split("=", 1)
+            else:
+                value = os.getenv(var)
+            if value == "" and unset_empty:
+                value = None
+            logging.info("Sending %s=%s" % (var, value))
+            sender.send_variable(var, value)
 
 # Entry point
 def plac_call_main():
