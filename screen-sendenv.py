@@ -83,7 +83,8 @@ class EnvSender(object):
 
 class ScreenEnvSender(EnvSender):
     def socket_argspec(self):
-        return [ "-S", self.socket ] if self.socket else []
+        socket = self.socket or self.default_socket
+        return [ "-S", socket ] if socket else []
     def command_prelude(self):
         return [ self.path ] + self.socket_argspec() + [ "-X" ]
     def test_command(self):
@@ -97,6 +98,10 @@ class ScreenEnvSender(EnvSender):
     @property
     def default_path(self):
         return "screen"
+    @property
+    def default_socket(self):
+        cmd = "%s -wipe | grep '^\s' | head -n1 | cut -f2" % self.path
+        return subprocess.check_output(["sh", "-c", cmd]).strip()
 
 class TmuxEnvSender(EnvSender):
     def handle_kwargs(self, kwargs):
